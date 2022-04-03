@@ -5,8 +5,8 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors());
-app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
+app.use(bodyParser.json());
 
 const subscribe = (req, res, isDriver) => {
     const headers = {
@@ -35,14 +35,6 @@ const subscribe = (req, res, isDriver) => {
     return newClient;
 };
 
-
-// Usage:
-//
-// const data = {
-//     type: 'driverFinished',
-//     content: 'driver finished',
-// };
-// boradcast(JSON.stringify(data));//debug
 const boradcast = (data) => {
     clients.forEach(client =>client.res.write(`${data}\n`));
 }
@@ -98,6 +90,8 @@ app.get('/api/choose_driver/:id', (req, res) => {
         const match = {
             driverId: driver.id,
             passengerId: passenger.id,
+            driverRating: -1,
+            passengerRating: -1,
         }
         matches.push(match);
         console.log(`match created, passenger id: ${passenger.id}, driver id: ${driver.id}`);//debug
@@ -179,12 +173,63 @@ app.get('/api/driver_finished/:id', (req, res) => {
     }
 });
 
-app.post('/api/rating_score', (req, res) => {
-    // TODO: 
-    // - Register rating score in the match.
-    // - If we got both the rating score and it is above 8 points,
-    //   broadcast the friend notification to driver and passenger.
-    console.log('Post rating score');
+app.post('/api/rating_score/driver/:id', (req, res) => {
+    // Register rating score in the match.
+    const driver = clients.find((client) => client.id === parseInt(req.params.id));
+    let match = matches.find((match) => match.driverId === driver.id);
+    match.driverRating = parseInt(req.body.rating);
+    console.log(match);//debug
+
+    if (match.passengerRating !== -1) {
+        const rating_sum = match.passengerRating + match.driverRating;
+        if (rating_sum >= 8) {
+            // If we got both the rating score and it is above 8 points,
+            // broadcast the friend notification to driver and passenger.
+            console.log('Friend match success.');
+            const data = {
+                type: 'newFriend',
+                content: 'You got a new friend.'
+            }
+            sendMessage(JSON.stringify(data), match.passengerId);
+            sendMessage(JSON.stringify(data), match.driverId);
+        } else {
+            console.log(`Friend match failed: driver(${match.driverRating}), passenger(${match.passengerRating})`);
+        }
+        // Remove the match.
+        matches = matches.filter((match, index, matches) => match.driverId !== driver.id);
+    }
+    console.log(matches); //debug
+    res.end();
+});
+
+app.post('/api/rating_score/passenger/:id', (req, res) => {
+    // Register rating score in the match.
+    const passenger = clients.find((client) => client.id === parseInt(req.params.id));
+    let match = matches.find((match) => match.passengerId === passenger.id);
+    match.passengerRating = parseInt(req.body.rating);
+    console.log(match);//debug
+
+    if (match.driverRating !== -1) {
+        const rating_sum = match.passengerRating + match.driverRating;
+        console.log(`rating sum: ${rating_sum}`);
+        if (rating_sum >= 8) {
+            // If we got both the rating score and it is above 8 points,
+            // broadcast the friend notification to driver and passenger.
+            console.log('Friend match success.');
+            const data = {
+                type: 'newFriend',
+                content: 'You got a new friend.'
+            }
+            sendMessage(JSON.stringify(data), match.passengerId);
+            sendMessage(JSON.stringify(data), match.driverId);
+        } else {
+            console.log(`Friend match failed: driver(${match.driverRating}), passenger(${match.passengerRating})`);
+        }
+        // Remove the match.
+        matches = matches.filter((match, index, matches) => match.passengerId !== passenger.id);
+    }
+    console.log(matches); //debug
+    res.end();
 });
 
 const PORT = 3000;
