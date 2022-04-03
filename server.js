@@ -86,32 +86,43 @@ app.get('/api/request_drivers', (req, res) => {
     console.log('Request drivers.');
 });
 
-app.post('/api/choose_driver', (req, res) => {
-    // Resgister the client as passenger.
-    const passenger = subscribe(req, res, false);
-
+app.get('/api/choose_driver/:id', (req, res) => {
     // Pick the first driver from the clients. 
-    const driver = clients.find((client) => client.isDriver).id;
+    const driver = clients.find((client) => client.isDriver);
 
-    // Create a match.
-    const match = {
-        driverId: driver.id,
-        passengerId: passenger.id,
-    }
-    matches.push(match);
-    console.log(`match created, passenger id: ${passenger.id}, driver id: ${driver.id}`);//debug
+    // Find the passenger.
+    const passenger = clients.find((client) => client.id === parseInt(req.params.id));
 
-    // Broadcast the match to driver and passenger.
-    const passengerData = {
-        type: 'driverMatched',
-        content: 'We matched a driver for you.',
-    };
-    sendMessage(JSON.stringify(passengerData), passenger.id);
-    const driverData = {
-        type: 'passengerMatched',
-        content: 'A passenger needs a ride.',
+    if (driver && passenger) {
+        // Create a match.
+        const match = {
+            driverId: driver.id,
+            passengerId: passenger.id,
+        }
+        matches.push(match);
+        console.log(`match created, passenger id: ${passenger.id}, driver id: ${driver.id}`);//debug
+        res.json({status: `match created, passenger id: ${passenger.id}, driver id: ${driver.id}`});
+
+        // Broadcast the match to driver and passenger.
+        const passengerData = {
+            type: 'driverMatched',
+            content: 'We matched a driver for you.',
+        };
+        sendMessage(JSON.stringify(passengerData), passenger.id);
+        const driverData = {
+            type: 'passengerMatched',
+            content: 'A passenger needs a ride.',
+        }
+        sendMessage(JSON.stringify(driverData), driver.id);
+    } else {
+        if (!passenger) {
+            res.json({status: `Passenger ${req.params.id} does not exist.`});
+            console.log(`Passenger ${req.params.id} does not exist.`);
+        } else if (!driver) {
+            res.json({status: 'No driver avaliable.'});
+            console.log('No driver avaliable.');
+        }
     }
-    sendMessage(JSON.stringify(driverData), driver.id);
 }); 
 
 app.post('/api/driver_location', (req, res) => {
