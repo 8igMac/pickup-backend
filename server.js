@@ -125,15 +125,35 @@ app.get('/api/choose_driver/:id', (req, res) => {
     }
 }); 
 
-app.post('/api/driver_location', (req, res) => {
-    // TODO: Send estimated arrival time to clients.
-    consoloe.log('Driver started.');
+app.get('/api/driver_location/:id', (req, res) => {
+    // TODO: Driver post location.
+
+    // Pick the first driver from the clients. 
+    const driver = clients.find((client) => client.id === parseInt(req.params.id));
+    const match = matches.find((match) => match.driverId === driver.id);
+    const passenger = clients.find((client) => client.id === match.passengerId);
+
+    if (driver && passenger) {
+        const estimate_min = 3;
+
+        const data = {
+            type: 'driverStarted',
+            content: `Driver started: ${estimate_min} minutes left.`,
+        }
+        sendMessage(JSON.stringify(data), passenger.id);
+        res.end();
+    } else {
+        console.log('error: driver, passenger');
+        console.log(driver);
+        console.log(passenger);
+    }
 });
 
 app.post('/api/driver_finished', (req, res) => {
     // TODO: 
     // - Send gift to driver.
     // - Send rating to passenger.
+    // - Remove the match.
     console.log('Driver finished');
 });
 
